@@ -64,7 +64,7 @@ const float4x4 cg::world::camera::get_view_matrix() const
 	float3 up{0.f, 1.f, 0.f};
 	float3 eye = position + get_direction();
 
-	float3 z_axis = position - eye;
+	float3 z_axis = normalize(position - eye);
 	float3 x_axis = normalize(cross(up, z_axis));
 	float3 y_axis = cross(z_axis, x_axis);
 	return float4x4{

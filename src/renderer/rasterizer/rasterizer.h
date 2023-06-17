@@ -115,13 +115,13 @@ namespace cg::renderer
 			float2 vertex_c = float2{vertices[2].x, vertices[2].y};
 
 			float2 min_vertex = min(vertex_a, min(vertex_b, vertex_c));
-			float2 bounding_box_begin = round(std::clamp(
+			float2 bounding_box_begin = round(clamp(
 					min_vertex,
 					float2{0, 0},
 					float2{static_cast<float>(width - 1), static_cast<float>(height - 1)}));
 
 			float2 max_vertex = max(vertex_a, max(vertex_b, vertex_c));
-			float2 bounding_box_end = round(std::clamp(
+			float2 bounding_box_end = round(clamp(
 					max_vertex,
 					float2{0, 0},
 					float2{static_cast<float>(width - 1), static_cast<float>(height - 1)}));
@@ -130,8 +130,8 @@ namespace cg::renderer
 				for (float y = bounding_box_begin.y; y <= bounding_box_end.y; y++) {
 					float2 point{x, y};
 					float edge0 = edge_function(vertex_a, vertex_b, point);
-					float edge1 = edge_function(vertex_c, vertex_b, point);
-					float edge2 = edge_function(vertex_a, vertex_c, point);
+					float edge1 = edge_function(vertex_b, vertex_c, point);
+					float edge2 = edge_function(vertex_c, vertex_a, point);
 
 					if (edge0 >= 0.f && edge1 >= 0.f && edge2 >= 0.f) {
 						size_t u_x = static_cast<size_t>(x);
