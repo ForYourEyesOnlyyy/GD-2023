@@ -54,6 +54,7 @@ std::shared_ptr<renderer> cg::renderer::make_renderer(std::shared_ptr<cg::settin
 	THROW_ERROR("Type of renderer is not selected");
 }
 
+
 void cg::renderer::renderer::move_forward(float delta)
 {
 	camera->set_position(
