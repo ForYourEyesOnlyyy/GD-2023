@@ -55,7 +55,6 @@ void cg::renderer::rasterization_renderer::render()
 	std::chrono::duration<float,std::milli> duration = stop - start;
 	std::cout << "Rasterization took: " << duration.count() << " ms\n";
 	cg::utils::save_resource(*render_target, settings->result_path);
-	// TODO Lab: 1.03 Adjust `cg::renderer::rasterization_renderer` class to consume `cg::world::model`
 }
 
 void cg::renderer::rasterization_renderer::destroy() {}
