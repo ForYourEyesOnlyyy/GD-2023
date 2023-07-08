@@ -37,7 +37,15 @@ void cg::renderer::dx12_renderer::update()
 
 void cg::renderer::dx12_renderer::render()
 {
-	// TODO Lab: 3.06 Implement `render` method
+	populate_command_list();
+
+	ID3D12CommandList* command_lists[] = {command_list.Get()};
+
+	command_queue->ExecuteCommandLists(_countof(command_lists), command_lists);
+
+	THROW_IF_FAILED(swap_chain->Present(0, 0));
+
+	move_to_next_frame();
 }
 
 ComPtr<IDXGIFactory4> cg::renderer::dx12_renderer::get_dxgi_factory()
@@ -123,18 +131,27 @@ void cg::renderer::dx12_renderer::create_depth_buffer()
 
 void cg::renderer::dx12_renderer::create_command_allocators()
 {
-	// TODO Lab: 3.06 Create command allocators and a command list
+	for (auto& command_allocator:command_allocators) {
+		THROW_IF_FAILED(
+				device->CreateCommandAllocator(
+						D3D12_COMMAND_LIST_TYPE_DIRECT,
+						IID_PPV_ARGS(&command_allocator)));
+	}
 }
 
 void cg::renderer::dx12_renderer::create_command_list()
 {
-	// TODO Lab: 3.06 Create command allocators and a command list
+	THROW_IF_FAILED(device->CreateCommandList(
+			0,
+			D3D12_COMMAND_LIST_TYPE_DIRECT,
+			command_allocators[frame_index].Get(),
+			pipeline_state.Get(),
+			IID_PPV_ARGS(&command_list)));
 }
 
 
 void cg::renderer::dx12_renderer::load_pipeline()
 {
-	// TODO Lab: 3.04 Create render target views
 	ComPtr<IDXGIFactory4> dxgi_factory = get_dxgi_factory();
 	initialize_device(dxgi_factory);
 	create_direct_command_queue();
@@ -375,6 +392,9 @@ void cg::renderer::dx12_renderer::load_assets()
 	create_root_signature(nullptr, 0);
 
 	create_pso("shaders.hlsl");
+
+	create_command_allocators();
+	create_command_list();
 	vertex_buffers.resize(model->get_vertex_buffers().size());
 	vertex_buffer_views.resize(model->get_vertex_buffers().size());
 	index_buffers.resize(model->get_index_buffers().size());
@@ -424,16 +444,57 @@ void cg::renderer::dx12_renderer::load_assets()
 	cbv_srv_heap.create_heap(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 	create_constant_buffer_view(constant_buffer, cbv_srv_heap.get_cpu_descriptor_handle(0));
 
-	// TODO Lab: 3.05 Setup a PSO descriptor and create a PSO
 	// TODO Lab: 3.06 Create command allocators and a command list
 
 	// TODO Lab: 3.07 Create a fence and fence event
+
+	THROW_IF_FAILED(command_list->Close());
 }
 
 
 void cg::renderer::dx12_renderer::populate_command_list()
 {
-	// TODO Lab: 3.06 Implement `populate_command_list` method
+	THROW_IF_FAILED(command_allocators[frame_index]->Reset());
+	THROW_IF_FAILED(command_list->Reset(command_allocators[frame_index].Get(), pipeline_state.Get()));
+
+	command_list->SetGraphicsRootSignature(root_signature.Get());
+	ID3D12DescriptorHeap* heap[] = {cbv_srv_heap.get()};
+	command_list->SetDescriptorHeaps(_countof(heap), heap);
+	command_list->SetGraphicsRootDescriptorTable(0, cbv_srv_heap.get_gpu_descriptor_handle(0));
+	command_list->RSSetViewports(1, &view_port);
+	command_list->RSSetScissorRects(1, &scissor_rect);
+	command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	D3D12_RESOURCE_BARRIER begin_barriers [] = {
+			CD3DX12_RESOURCE_BARRIER::Transition(render_targets[frame_index].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET)
+	};
+
+	command_list->ResourceBarrier(_countof(begin_barriers), begin_barriers);
+
+	command_list->OMSetRenderTargets(1,
+									 &rtv_heap.get_cpu_descriptor_handle(frame_index),
+									 FALSE,
+									 nullptr);
+
+	const float clear_color[] = {0.f, 0.f, 0.f, 1.f};
+
+	command_list->ClearRenderTargetView(rtv_heap.get_cpu_descriptor_handle(), clear_color, 0, nullptr);
+	for (size_t s = 0; s<model->get_index_buffers().size();s++) {
+		command_list->IASetVertexBuffers(0, 1, &vertex_buffer_views[s]);
+		command_list->IASetIndexBuffer(&index_buffer_views[s]);
+		command_list->DrawIndexedInstanced(static_cast<UINT>(model->get_index_buffers()[s]->get_number_of_elements()),
+										   1,
+										   0,
+										   0,
+										   0);
+	}
+
+	D3D12_RESOURCE_BARRIER end_barriers [] = {
+			CD3DX12_RESOURCE_BARRIER::Transition(render_targets[frame_index].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT)
+	};
+	command_list->ResourceBarrier(_countof(end_barriers), end_barriers);
+	THROW_IF_FAILED(command_list->Close());
+
 }
 
 
