@@ -22,6 +22,9 @@ void cg::renderer::dx12_renderer::init()
 	camera->set_angle_of_view(settings->camera_angle_of_view);
 	camera->set_z_near(settings->camera_z_near);
 	camera->set_z_far(settings->camera_z_far);
+
+	load_pipeline();
+	load_assets();
 }
 
 void cg::renderer::dx12_renderer::destroy()
@@ -444,11 +447,18 @@ void cg::renderer::dx12_renderer::load_assets()
 	cbv_srv_heap.create_heap(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 	create_constant_buffer_view(constant_buffer, cbv_srv_heap.get_cpu_descriptor_handle(0));
 
-	// TODO Lab: 3.06 Create command allocators and a command list
-
-	// TODO Lab: 3.07 Create a fence and fence event
-
 	THROW_IF_FAILED(command_list->Close());
+
+	THROW_IF_FAILED(device->CreateFence(0,
+										D3D12_FENCE_FLAG_NONE,
+										IID_PPV_ARGS(&fence)));
+
+	fence_event=CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	if (fence_event == nullptr) {
+		THROW_IF_FAILED(HRESULT_FROM_WIN32(GetLastError()));
+	}
+
+	wait_for_gpu();
 }
 
 
@@ -500,12 +510,27 @@ void cg::renderer::dx12_renderer::populate_command_list()
 
 void cg::renderer::dx12_renderer::move_to_next_frame()
 {
-	// TODO Lab: 3.07 Implement `move_to_next_frame` method
+	const UINT64 current_fence_value = fence_values[frame_index];
+	THROW_IF_FAILED(command_queue->Signal(fence.Get(), current_fence_value));
+	frame_index = swap_chain->GetCurrentBackBufferIndex();
+	if (fence->GetCompletedValue() < fence_values[frame_index]) {
+		THROW_IF_FAILED(fence->SetEventOnCompletion(fence_values[frame_index], fence_event));
+		WaitForSingleObjectEx(fence_event, INFINITE, FALSE);
+	}
+	fence_values[frame_index] = current_fence_value + 1;
 }
 
 void cg::renderer::dx12_renderer::wait_for_gpu()
 {
-	// TODO Lab: 3.07 Implement `wait_for_gpu` method
+	THROW_IF_FAILED(command_queue->Signal(
+			fence.Get(),
+			fence_values[frame_index]
+			));
+	THROW_IF_FAILED(fence->SetEventOnCompletion(fence_values[frame_index], fence_event));
+
+	WaitForSingleObjectEx(fence_event, INFINITE, FALSE);
+	fence_values[frame_index]++;
+
 }
 
 
