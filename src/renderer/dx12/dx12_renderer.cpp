@@ -497,7 +497,7 @@ void cg::renderer::dx12_renderer::populate_command_list()
 
 	const float clear_color[] = {0.f, 0.f, 0.f, 1.f};
 
-	command_list->ClearRenderTargetView(rtv_heap.get_cpu_descriptor_handle(), clear_color, 0, nullptr);
+	command_list->ClearRenderTargetView(rtv_heap.get_cpu_descriptor_handle(frame_index), clear_color, 0, nullptr);
 	for (size_t s = 0; s<model->get_index_buffers().size();s++) {
 		command_list->IASetVertexBuffers(0, 1, &vertex_buffer_views[s]);
 		command_list->IASetIndexBuffer(&index_buffer_views[s]);
